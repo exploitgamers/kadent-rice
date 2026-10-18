@@ -305,10 +305,15 @@ backup_one() { # $1 = absolute path under HOME, before we change it in place
     [ -e "$to/$rel" ] || cp -a "$1" "$to/$rel"
 }
 
-# gsettings write to the session's dconf, which needs a D-Bus session (else GIO silently keeps them in memory)
-have_bus() { [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] || [ -S "${XDG_RUNTIME_DIR:-/nonexistent}/bus" ]; }
+# gsettings write to the session's dconf through D-Bus; without a reachable bus `gsettings set` still exits 0
+# (a stale DBUS_SESSION_BUS_ADDRESS too), so ping the bus instead of trusting the env
+have_bus() { gdbus call --session --timeout 5 --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus --method org.freedesktop.DBus.GetId >/dev/null 2>&1; }
 # stubbed test runs leave the real session's dconf alone unless given a private bus (dbus-run-session)
-test_bus() { [ "$STUB" = 1 ] && [ "${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR:-}/bus}" = "unix:path=${XDG_RUNTIME_DIR:-}/bus" ]; }
+test_bus() {
+    [ "$STUB" = 1 ] || return 1
+    case ${DBUS_SESSION_BUS_ADDRESS:-} in '' | "unix:path=/run/user/$(id -u)/bus"* | "unix:path=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus"*) return 0 ;; esac
+    return 1
+}
 
 gtk_settings() { # GTK4/libadwaita apps read the theme, icons, font and cursor from gsettings, not settings.ini
     say "GTK settings (gsettings org.gnome.desktop.interface)"
