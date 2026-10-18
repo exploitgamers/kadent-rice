@@ -1,0 +1,8 @@
+#!/usr/bin/python3 -I
+# Run a command with transparent huge pages off for it and its children.
+# THP=always (CachyOS) padded each Quickshell heap with ~100-250 MB of mostly
+# empty huge pages; off, the macos shell went 266 -> 163 MB PSS (2026-10-12).
+import ctypes, os, sys
+if ctypes.CDLL(None, use_errno=True).prctl(41, 1, 0, 0, 0) != 0:  # PR_SET_THP_DISABLE
+    print("rice-nothp: prctl failed, running with THP", file=sys.stderr)
+os.execvp(sys.argv[1], sys.argv[1:])

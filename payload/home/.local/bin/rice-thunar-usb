@@ -1,0 +1,18 @@
+#!/bin/sh
+# Thunar + USB drives: turn on volume management and thunar-volman auto-mount/auto-open.
+# Run once after: sudo pacman -S --needed gvfs thunar-volman tumbler gvfs-mtp
+# Undo: rice-thunar-usb --off
+set -eu
+for p in gvfs thunar-volman; do
+    pacman -Q "$p" >/dev/null 2>&1 || { echo "rice-thunar-usb: '$p' not installed yet" >&2; exit 1; }
+done
+v=true; [ "${1:-}" = "--off" ] && v=false
+set_bool() { xfconf-query -c "$1" -p "$2" -n -t bool -s "$v" 2>/dev/null || xfconf-query -c "$1" -p "$2" -s "$v"; }
+set_bool thunar /misc-volume-management
+for k in automount-drives/enabled automount-media/enabled autobrowse/enabled; do
+    set_bool thunar-volman "/$k"
+done
+xfconf-query -c thunar-volman -lv
+# Thunar must restart to pick up gvfs (sidebar drives); quit any running instance cleanly.
+thunar -q 2>/dev/null || true
+echo "rice-thunar-usb: done ($v). Open Thunar; USB drives appear under Devices."

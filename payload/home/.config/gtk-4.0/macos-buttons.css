@@ -1,0 +1,58 @@
+/* macOS traffic lights for GTK4 / libadwaita apps that draw their own title bar.
+   Matches the hyprbars title bars: glyphs on hover, halo + darken on the hovered
+   button, grey when the window is unfocused. The circle is drawn on the icon
+   (the button itself stretches to the header-bar height). Imported from gtk.css
+   (re-linked by the postHook in ~/.config/caelestia/cli.json after theme changes). */
+
+windowcontrols { border-spacing: 8px; }
+
+windowcontrols > button {
+  min-width: 13px;
+  min-height: 13px;
+  padding: 0;
+  margin: 0;
+  background: none;
+  box-shadow: none;
+  border: none;
+}
+
+windowcontrols > button > image {
+  min-width: 13px;
+  min-height: 13px;
+  padding: 0;
+  margin: 0;
+  border-radius: 9999px;
+  -gtk-icon-size: 9px;
+  color: transparent;
+  transition: box-shadow 120ms ease-out, filter 120ms ease-out, background-color 120ms ease-out;
+}
+
+windowcontrols > button > image,
+windowcontrols > button:disabled > image { opacity: 1; }
+
+/* Colours restated for every state so libadwaita's own hover tint can't win */
+windowcontrols > button.close > image,
+windowcontrols:hover > button.close > image,
+windowcontrols:hover > button.close:hover > image       { background-color: #ff5f57; }
+windowcontrols > button.minimize > image,
+windowcontrols:hover > button.minimize > image,
+windowcontrols:hover > button.minimize:hover > image    { background-color: #febc2e; }
+windowcontrols > button.maximize > image,
+windowcontrols:hover > button.maximize > image,
+windowcontrols:hover > button.maximize:hover > image    { background-color: #28c840; }
+
+/* Glyphs appear on every light while the group is hovered (macOS) */
+windowcontrols:hover > button > image { color: rgba(0, 0, 0, 0.75); }
+
+/* The light under the pointer: halo + slightly darker */
+windowcontrols:hover > button.close:hover > image    { box-shadow: 0 0 0 3px alpha(#ff5f57, 0.38); filter: brightness(0.82); }
+windowcontrols:hover > button.minimize:hover > image { box-shadow: 0 0 0 3px alpha(#febc2e, 0.38); filter: brightness(0.82); }
+windowcontrols:hover > button.maximize:hover > image { box-shadow: 0 0 0 3px alpha(#28c840, 0.38); filter: brightness(0.82); }
+windowcontrols > button:active > image         { filter: brightness(0.7); }
+
+/* Unfocused window: grey lights until the group is hovered */
+windowcontrols:backdrop:not(:hover) > button > image { background-color: alpha(#ffffff, 0.18); }
+
+/* Same 12px inset from the window edge as the hyprbars title bars
+   (libadwaita's header bar already pads 6px) */
+windowcontrols.start { margin-left: 6px; }

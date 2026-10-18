@@ -1,0 +1,10 @@
+{
+  "sizes": {
+    "osd": {
+      "sliderHeight": 240
+    },
+    "bar": {
+      "innerWidth": 23
+    }
+  }
+}

@@ -1,0 +1,240 @@
+{
+  "dock": {
+    "autoHide": false,
+    "iconSize": 48,
+    "launchpad": true,
+    "magnification": 1.55,
+    "pinned": [
+      "thunar",
+      "foot",
+      "desktop-settings",
+      "firefox"
+    ]
+  },
+  "hotCorners": {
+    "bottomLeft": "lock",
+    "bottomRight": "showdesktop",
+    "topLeft": "launcher",
+    "topRight": "none"
+  },
+  "keybinds": {},
+  "launcher": {
+    "pinned": [
+      "firefox",
+      "foot",
+      "thunar",
+      "desktop-settings",
+      "btop"
+    ]
+  },
+  "motion": {
+    "dampingRatio": 1,
+    "response": 0.35
+  },
+  "nightShift": "off",
+  "nowPlaying": {
+    "mode": "off",
+    "seconds": 6
+  },
+  "sound": {
+    "appVolumes": {}
+  },
+  "widgets": {
+    "clock24h": true,
+    "dim": "auto",
+    "enabled": true,
+    "glass": true,
+    "items": [
+      {
+        "id": "calendar-1",
+        "order": 0,
+        "pos": {
+          "eDP-1": {
+            "x": 1358,
+            "y": 4
+          }
+        },
+        "screen": "",
+        "size": "small",
+        "stack": "calendar-1",
+        "type": "calendar",
+        "x": 1730,
+        "y": 20
+      },
+      {
+        "id": "weather-1",
+        "order": -2235,
+        "pos": {
+          "HDMI-A-1": {
+            "x": 1546,
+            "y": 200
+          }
+        },
+        "screen": "",
+        "size": "medium",
+        "smartRotate": true,
+        "stack": "s-info",
+        "type": "weather",
+        "x": 1540,
+        "y": 210
+      },
+      {
+        "id": "profile-1",
+        "order": 0,
+        "pos": {
+          "HDMI-A-1": {
+            "x": 1546,
+            "y": 200
+          }
+        },
+        "screen": "",
+        "size": "medium",
+        "smartRotate": true,
+        "stack": "s-info",
+        "type": "profile",
+        "x": 1540,
+        "y": 210
+      },
+      {
+        "id": "music-1",
+        "order": -2234,
+        "pos": {
+          "HDMI-A-1": {
+            "x": 1546,
+            "y": 200
+          }
+        },
+        "screen": "",
+        "size": "medium",
+        "smartRotate": true,
+        "stack": "s-info",
+        "type": "music",
+        "x": 1540,
+        "y": 210
+      },
+      {
+        "id": "system-1",
+        "order": -16,
+        "screen": "",
+        "size": "small",
+        "smartRotate": true,
+        "stack": "system-1",
+        "type": "system",
+        "x": 1730,
+        "y": 400
+      },
+      {
+        "id": "battery-1",
+        "order": -1,
+        "pos": {
+          "HDMI-A-1": {
+            "x": 1545,
+            "y": 398
+          }
+        },
+        "screen": "",
+        "size": "small",
+        "smartRotate": true,
+        "stack": "network-1",
+        "type": "battery",
+        "x": 1540,
+        "y": 400
+      },
+      {
+        "id": "network-1",
+        "order": -2,
+        "pos": {
+          "HDMI-A-1": {
+            "x": 1545,
+            "y": 398
+          }
+        },
+        "screen": "",
+        "size": "small",
+        "smartRotate": true,
+        "stack": "network-1",
+        "type": "network",
+        "x": 1540,
+        "y": 400
+      },
+      {
+        "id": "conditions-1",
+        "order": -15,
+        "screen": "",
+        "size": "small",
+        "smartRotate": true,
+        "stack": "system-1",
+        "type": "conditions",
+        "x": 1730,
+        "y": 400
+      },
+      {
+        "id": "shortcuts-1",
+        "order": -7,
+        "screen": "",
+        "size": "medium",
+        "smartRotate": true,
+        "stack": "files-1",
+        "type": "shortcuts",
+        "x": 1540,
+        "y": 590
+      },
+      {
+        "id": "files-1",
+        "order": -6,
+        "pos": {},
+        "screen": "",
+        "size": "medium",
+        "smartRotate": true,
+        "stack": "files-1",
+        "type": "files",
+        "x": 1540,
+        "y": 590
+      },
+      {
+        "id": "notes-mv83pcqw",
+        "pos": {
+          "HDMI-A-1": {
+            "x": 1154,
+            "y": 200
+          }
+        },
+        "screen": "eDP-1",
+        "size": "large",
+        "type": "notes",
+        "x": 776,
+        "y": 4
+      },
+      {
+        "id": "timer-mvdcc67l",
+        "order": -1,
+        "pos": {
+          "eDP-1": {
+            "x": 1358,
+            "y": 4
+          }
+        },
+        "screen": "",
+        "size": "small",
+        "stack": "calendar-1",
+        "type": "timer",
+        "x": 1730,
+        "y": 20
+      },
+      {
+        "id": "clock-mvdcd6a3",
+        "screen": "HDMI-A-1",
+        "size": "medium",
+        "type": "clock",
+        "x": 1350,
+        "y": 4
+      }
+    ],
+    "temperatureUnit": "C",
+    "weatherLocation": ""
+  },
+  "windows": {
+    "floating": true,
+    "titlebarMenu": "right"
+  }
+}

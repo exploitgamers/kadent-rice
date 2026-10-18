@@ -1,0 +1,27 @@
+# Repo packages the desktop uses (one `pacman -Syu --needed` at install time).
+# build.sh checks every name with `pacman -Si`. Dependencies of the bundled AUR
+# packages (caelestia-shell, caelestia-cli, hyprmod, qtengine…) are pulled in by
+# `pacman -U` automatically and are not listed here.
+
+# compositor + portals + Hyprland tools the config calls
+hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpicker hyprsunset
+
+# Quickshell runtime (the bundled build) and the repo build as a fallback
+quickshell qt6-base qt6-declarative qt6-svg qt6-wayland qt6-imageformats qt6-5compat jemalloc cpptrace
+
+# settings apps Desktop Settings > More opens (systemsettings comes with Plasma anyway;
+# alone on a bare system it is 139 packages / ~151 MiB of KDE Frameworks, ~4 MiB on top of this list)
+systemsettings uwsm nwg-look
+
+# apps the dock, launcher and keybinds open
+foot fish starship firefox thunar thunar-volman tumbler gvfs udisks2 fuzzel btop pwvucontrol kdialog
+
+# helpers called by the shells and rice-* scripts
+cliphist wl-clipboard grim slurp swappy ydotool jq socat inotify-tools libnotify playerctl
+brightnessctl ddcutil upower power-profiles-daemon networkmanager bluez bluez-utils
+pipewire pipewire-pulse wireplumber gnome-keyring polkit-gnome trash-cli geoclue sqlite fd
+imagemagick librsvg python python-pillow python-gobject rsync
+
+# fonts and themes
+inter-font ttf-jetbrains-mono-nerd ttf-material-symbols-variable ttf-cascadia-code-nerd
+noto-fonts noto-fonts-emoji adw-gtk-theme

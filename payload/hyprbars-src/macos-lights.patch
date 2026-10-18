@@ -1,0 +1,403 @@
+diff --git a/hyprbars/barDeco.cpp b/hyprbars/barDeco.cpp
+index c27653d..1c7b4f6 100644
+--- a/hyprbars/barDeco.cpp
++++ b/hyprbars/barDeco.cpp
+@@ -19,6 +19,9 @@
+ #include <hyprland/src/animation/AnimationManager.hpp>
+ #include <hyprland/src/protocols/LayerShell.hpp>
+ #include <hyprland/src/event/EventBus.hpp>
++#include <hyprland/src/managers/EventManager.hpp>
++#include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
++#include <hyprland/src/pointer/cursor/CursorShapeOverrideController.hpp>
+ #include <hyprland/src/layout/LayoutManager.hpp>
+ #include <hyprland/src/render/OpenGL.hpp>
+ #include <hyprland/src/state/MonitorState.hpp>
+@@ -28,6 +31,30 @@
+ 
+ #include <climits>
+ 
++// Announce title-bar drags on the event socket ("custom>>macdrag>>1/0"), the same
++// signal Hyprland's mouse:272 binds send for other drags. The bar consumes its
++// press, so binds never see it — without this, edge widgets open mid-drag.
++static void announceDrag(bool dragging) {
++    if (g_pEventManager)
++        g_pEventManager->postEvent(SHyprIPCEvent{"custom", dragging ? "macdrag>>1" : "macdrag>>0"});
++}
++
++// Announce plain clicks on the bar ("custom>>macbarclick>>left|right|double"): the bar
++// consumes its presses, so Hyprland's mouse binds (the window menu in hypr-qol.lua)
++// never see them. The macos shell forwards these to mac_bar_click().
++static void announceClick(const char* what) {
++    if (g_pEventManager)
++        g_pEventManager->postEvent(SHyprIPCEvent{"custom", std::string("macbarclick>>") + what});
++}
++
++static const char* topEdgeCursor(uint8_t edge) {
++    if (edge == Layout::CORNER_TOPLEFT)
++        return "nw-resize";
++    if (edge == Layout::CORNER_TOPRIGHT)
++        return "ne-resize";
++    return "n-resize";
++}
++
+ using namespace Render::GL;
+ 
+ static CHyprColor configColor(Config::INTEGER color) {
+@@ -83,6 +110,11 @@ std::string CHyprBar::getDisplayName() {
+     return "Hyprbar";
+ }
+ 
++// A window's real box, title bar included, without the border grab padding.
++static CBox realBox(const PHLWINDOW& w) {
++    return w->getWindowBoxUnified(Desktop::View::RESERVED_EXTENTS);
++}
++
+ bool CHyprBar::inputIsValid() {
+     if (m_hidden)
+         return false;
+@@ -103,7 +135,16 @@ bool CHyprBar::inputIsValid() {
+     auto                    focusState = Desktop::focusState();
+     auto                    window     = focusState->window();
+ 
+-    if (WINDOWATCURSOR != m_pWindow && m_pWindow != window)
++    // windowAt() pads floating windows by the border grab area, so an upper window's
++    // padding can cover this bar; it only counts when the pointer is really inside it.
++    // shortcut: a third window stacked between the two isn't considered; rare with 3+ overlaps.
++    // Only for a bar that is on screen: every bar sees every click, and one on another desktop
++    // (or minimised) at the same spot would take it (focus it, switching desktops, or close it).
++    const auto SELF        = m_pWindow.lock();
++    const bool SHOWN       = SELF && SELF->m_isMapped && !SELF->isHidden() && SELF->m_workspace && SELF->m_workspace->isVisible();
++    const bool PADDINGONLY = SHOWN && WINDOWATCURSOR && !realBox(WINDOWATCURSOR).containsPoint(MOUSE) && assignedBoxGlobal().containsPoint(MOUSE);
++    // A hidden/minimised window can still be the focused one: its bar must not take clicks then.
++    if (!SHOWN || (WINDOWATCURSOR != m_pWindow && m_pWindow != window && !PADDINGONLY))
+         return false;
+ 
+     PHLLS    foundSurface = nullptr;
+@@ -123,6 +164,25 @@ bool CHyprBar::inputIsValid() {
+ }
+ 
+ void CHyprBar::onMouseButton(Event::SCallbackInfo& info, IPointer::SButtonEvent e) {
++    // Finish a top-edge resize started from this bar
++    if (m_bResizingThis && e.state != WL_POINTER_BUTTON_STATE_PRESSED) {
++        m_bResizingThis = false;
++        info.cancelled  = true;
++        g_layoutManager->endDragTarget();
++        announceDrag(false);
++        // keep the window inside the usable area (mac_clamp_active in hypr-qol.lua);
++        // the mouse binds that do this for other resizes never see this release
++        Config::Supplementary::executor()->spawn("sleep 0.08 && hyprctl eval 'mac_clamp_active()'");
++        return;
++    }
++
++    // A drag this bar started ends on any release, even one over a layer surface
++    // (a shell panel, the dock) that inputIsValid() rejects — it used to stay stuck.
++    if (m_bDraggingThis && e.state != WL_POINTER_BUTTON_STATE_PRESSED) {
++        handleUpEvent(info);
++        return;
++    }
++
+     if (!inputIsValid())
+         return;
+ 
+@@ -131,6 +191,23 @@ void CHyprBar::onMouseButton(Event::SCallbackInfo& info, IPointer::SButtonEvent
+         return;
+     }
+ 
++    // Start a top-edge resize: Hyprland's own border zone sits inside this bar
++    // (it's measured from the client box) and decorations get clicks first, so
++    // without this the top edge can't be resized at all.
++    if (e.button == BTN_LEFT) {
++        if (const auto EDGE = topResizeEdge(); EDGE != Layout::CORNER_NONE) {
++            const auto PWINDOW = m_pWindow.lock();
++            if (Desktop::focusState()->window() != PWINDOW)
++                Desktop::focusState()->fullWindowFocus(PWINDOW, Desktop::FOCUS_REASON_CLICK);
++            info.cancelled  = true;
++            m_bResizingThis = true;
++            g_layoutManager->beginDragTarget(PWINDOW->layoutTarget(), MBIND_RESIZE, (Layout::eRectCorner)EDGE);
++            announceDrag(true);
++            return;
++        }
++    }
++
++    m_lastButton = e.button;
+     handleDownEvent(info, std::nullopt);
+ }
+ 
+@@ -154,6 +231,20 @@ void CHyprBar::onMouseMove(Vector2D coords) {
+     if (g_pGlobalState->config.iconOnHover->value())
+         damageOnButtonHover();
+ 
++    // Resize cursor on the window's real top edge (see topResizeEdge). This hook
++    // runs before Hyprland's own border-cursor logic, so unsetting here never
++    // clobbers the cursor Hyprland sets for the other edges.
++    if (!m_bResizingThis) {
++        const auto EDGE = topResizeEdge();
++        if (EDGE != Layout::CORNER_NONE) {
++            Pointer::Cursor::overrideController->setOverride(topEdgeCursor(EDGE), Pointer::Cursor::CURSOR_OVERRIDE_WINDOW_EDGE);
++            m_bTopCursor = true;
++        } else if (m_bTopCursor) {
++            m_bTopCursor = false;
++            Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_WINDOW_EDGE);
++        }
++    }
++
+     if (!m_bDragPending || m_bTouchEv || !validMapped(m_pWindow) || m_touchId != 0)
+         return;
+ 
+@@ -170,6 +261,7 @@ void CHyprBar::onTouchMove(Event::SCallbackInfo& info, ITouch::SMotionEvent e) {
+     const auto COORDS = Vector2D(PMONITOR->m_position.x + e.pos.x * PMONITOR->m_size.x, PMONITOR->m_position.y + e.pos.y * PMONITOR->m_size.y);
+ 
+     if (!m_bDraggingThis) {
++        announceDrag(true);
+         // Initial setup for dragging a window.
+         g_pKeybindManager->m_dispatchers["setfloating"]("activewindow");
+         g_pKeybindManager->m_dispatchers["resizewindowpixel"]("exact 50% 50%,activewindow");
+@@ -180,6 +272,47 @@ void CHyprBar::onTouchMove(Event::SCallbackInfo& info, ITouch::SMotionEvent e) {
+     m_bDraggingThis = true;
+ }
+ 
++// The window's real top edge is the top of this bar. Treat a band reaching as far
++// outside it as Hyprland's other edges do (border + extend_border_grab_area), plus
++// a few px into the bar (above the traffic lights), as the top resize edge, with
++// the rounded ends acting as the top corners.
++uint8_t CHyprBar::topResizeEdge() {
++    static auto PRESIZEONBORDER = CConfigValue<Config::INTEGER>("general:resize_on_border");
++    static auto PBORDERSIZE     = CConfigValue<Config::INTEGER>("general:border_size");
++    static auto PEXTEND         = CConfigValue<Config::INTEGER>("general:extend_border_grab_area");
++    constexpr int INSIDE        = 5;
++
++    const auto PWINDOW = m_pWindow.lock();
++    if (!*PRESIZEONBORDER || m_hidden || !validMapped(PWINDOW) || Fullscreen::controller()->isFullscreen(PWINDOW))
++        return Layout::CORNER_NONE;
++
++    const auto MOUSE   = g_pInputManager->getMouseCoordsInternal();
++    const auto BAR     = assignedBoxGlobal();
++    const int  OUTSIDE = *PBORDERSIZE + *PEXTEND;
++    // cheap box test first: this runs for every bar on every pointer motion
++    if (MOUSE.y < BAR.y - OUTSIDE || MOUSE.y >= BAR.y + INSIDE || MOUSE.x < BAR.x - OUTSIDE || MOUSE.x > BAR.x + BAR.w + OUTSIDE)
++        return Layout::CORNER_NONE;
++
++    Desktop::CViewHitTester hitTester{*Desktop::viewState()};
++    if (hitTester.windowAt(MOUSE, Desktop::View::RESERVED_EXTENTS | Desktop::View::INPUT_EXTENTS | Desktop::View::ALLOW_FLOATING) != PWINDOW)
++        return Layout::CORNER_NONE;
++    // The grab band outside this window can lie over a lower window's bar or surface
++    // (e.g. its traffic lights): then that window gets the click, not a resize.
++    if (!realBox(PWINDOW).containsPoint(MOUSE)) {
++        for (const auto& w : Desktop::windowState()->windows()) {
++            if (w != PWINDOW && w->m_isMapped && !w->isHidden() && w->m_workspace && w->m_workspace->isVisible() && realBox(w).containsPoint(MOUSE))
++                return Layout::CORNER_NONE;
++        }
++    }
++
++    const double CORNER = PWINDOW->rounding() + *PBORDERSIZE + 10;
++    if (MOUSE.x < BAR.x + CORNER)
++        return Layout::CORNER_TOPLEFT;
++    if (MOUSE.x > BAR.x + BAR.w - CORNER)
++        return Layout::CORNER_TOPRIGHT;
++    return Layout::CORNER_TOP;
++}
++
+ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch::SDownEvent> touchEvent) {
+     m_bTouchEv = touchEvent.has_value();
+     if (m_bTouchEv)
+@@ -215,6 +348,7 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
+             if (m_bTouchEv)
+                 g_pKeybindManager->m_dispatchers["settiled"]("activewindow");
+             g_pKeybindManager->m_dispatchers["mouse"]("0movewindow");
++            announceDrag(false);
+             Log::logger->log(Log::DEBUG, "[hyprbars] Dragging ended on {:x}", (uintptr_t)PWINDOW.get());
+         }
+ 
+@@ -239,6 +373,7 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
+     if (!ON_DOUBLE_CLICK.empty() &&
+         std::chrono::duration_cast<std::chrono::milliseconds>(Time::steadyNow() - m_lastMouseDown).count() < 400 /* Arbitrary delay I found suitable */) {
+         Config::Supplementary::executor()->spawn(ON_DOUBLE_CLICK);
++        announceClick("double");
+         m_bDragPending = false;
+     } else {
+         m_lastMouseDown = Time::steadyNow();
+@@ -247,7 +382,10 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
+ }
+ 
+ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
+-    if (m_pWindow.lock() != Desktop::focusState()->window())
++    // A drag this bar started always ends here, focused or not: something taking focus
++    // mid-drag (a window sliding under the pointer) left it stuck in move mode, and
++    // macdrag>>0 never came.
++    if (!m_bDraggingThis && m_pWindow.lock() != Desktop::focusState()->window())
+         return;
+ 
+     if (m_bCancelledDown)
+@@ -258,12 +396,17 @@ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
+     if (m_bDraggingThis) {
+         g_pKeybindManager->changeMouseBindMode(MBIND_INVALID);
+         m_bDraggingThis = false;
++        announceDrag(false);
+         if (m_bTouchEv)
+             (void)Config::Actions::floatWindow(Config::Actions::eTogglableAction::TOGGLE_ACTION_DISABLE);
+ 
+         Log::logger->log(Log::DEBUG, "[hyprbars] Dragging ended on {:x}", (uintptr_t)m_pWindow.lock().get());
+     }
+ 
++    // pressed and released without moving: a click (drags clear m_bDragPending on the first move)
++    if (m_bDragPending && !m_bTouchEv)
++        announceClick(m_lastButton == BTN_RIGHT ? "right" : "left");
++
+     m_bDragPending = false;
+     m_bTouchEv     = false;
+     m_touchId      = 0;
+@@ -272,6 +415,7 @@ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
+ void CHyprBar::handleMovement() {
+     g_pKeybindManager->changeMouseBindMode(MBIND_MOVE);
+     m_bDraggingThis = true;
++    announceDrag(true);
+     Log::logger->log(Log::DEBUG, "[hyprbars] Dragging initiated on {:x}", (uintptr_t)m_pWindow.lock().get());
+     return;
+ }
+@@ -285,8 +429,10 @@ bool CHyprBar::doButtonPress(Config::INTEGER barPadding, Config::INTEGER barButt
+         Vector2D   currentPos = Vector2D{(BUTTONSRIGHT ? BARBUF.x - barButtonPadding - b.size - offset : offset), (BARBUF.y - b.size) / 2.0}.floor();
+ 
+         if (VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + b.size + barButtonPadding, currentPos.y + b.size)) {
+-            // hit on close
+-            g_pKeybindManager->m_dispatchers["exec"](b.cmd);
++            // Run the button's command with the same spawner the double-click uses.
++            // (The legacy m_dispatchers["exec"] doesn't exist under the Lua config,
++            //  so upstream's call silently did nothing.)
++            Config::Supplementary::executor()->spawn(b.cmd);
+             return true;
+         }
+ 
+@@ -350,6 +496,10 @@ void CHyprBar::renderBarButtons(CBox* barBox, const float scale, const float a)
+     const auto visibleCount    = getVisibleButtonCount(BARBUTTONPADDING, BARPADDING, Vector2D{barBox->w, barBox->h}, scale);
+     const bool INVALIDATEICONS = m_bButtonsDirty || m_bWindowSizeChanged;
+ 
++    // Use the live hover state for this frame (not last frame's), so the halo
++    // and glyphs always agree with where the pointer actually is
++    m_iButtonHoverState = hoverMask();
++
+     int        offset = BARPADDING * scale;
+     for (size_t i = 0; i < visibleCount; ++i) {
+         auto&      button           = g_pGlobalState->buttons[i];
+@@ -358,8 +508,12 @@ void CHyprBar::renderBarButtons(CBox* barBox, const float scale, const float a)
+ 
+         auto       color = button.bgcol;
+ 
++        const bool GROUPHOVER  = m_iButtonHoverState > 0;
++        const bool THISHOVERED = (m_iButtonHoverState & (1 << i)) != 0;
++
+         if (INACTIVECOLOR > 0) {
+-            color = m_bWindowHasFocus ? color : configColor(INACTIVECOLOR);
++            // macOS: unfocused windows show grey lights, but hovering brings the colours back
++            color = (m_bWindowHasFocus || GROUPHOVER) ? color : configColor(INACTIVECOLOR);
+             if (INVALIDATEICONS && button.userfg && button.iconTex)
+                 button.iconTex = nullptr;
+         }
+@@ -370,6 +524,18 @@ void CHyprBar::renderBarButtons(CBox* barBox, const float scale, const float a)
+                           scaledButtonSize};
+         buttonBox.round();
+ 
++        if (THISHOVERED) {
++            // soft halo around the button under the pointer
++            const auto HALO = std::round(3 * scale);
++            CBox       haloBox = {buttonBox.x - HALO, buttonBox.y - HALO, buttonBox.w + HALO * 2, buttonBox.h + HALO * 2};
++            haloBox.round();
++            auto haloCol = button.bgcol;
++            haloCol.a    = 0.38 * a;
++            g_pHyprOpenGL->renderRect(haloBox, haloCol, {.round = static_cast<int>(std::round(haloBox.w / 2.0)), .roundingPower = 2.F});
++            // and darken it slightly, like a pressed-ready macOS light
++            color = CHyprColor(color.r * 0.82, color.g * 0.82, color.b * 0.82, color.a);
++        }
++
+         g_pHyprOpenGL->renderRect(buttonBox, color, {.round = static_cast<int>(std::round(scaledButtonSize / 2.0)), .roundingPower = 2.F});
+ 
+         offset += scaledButtonsPad + scaledButtonSize;
+@@ -405,7 +571,7 @@ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float
+             // render icon
+             auto fgcol = button.userfg ? button.fgcol : (button.bgcol.r + button.bgcol.g + button.bgcol.b < 1) ? CHyprColor(0xFFFFFFFF) : CHyprColor(0xFF000000);
+ 
+-            button.iconTex = g_pHyprRenderer->renderText(button.icon, fgcol, std::round(button.size * 0.62 * scale), false, "sans", scaledButtonSize);
++            button.iconTex = g_pHyprRenderer->renderText(button.icon, fgcol, std::round(button.size * 0.8 * scale), false, "sans", scaledButtonSize, 700);
+         }
+ 
+         if (!button.iconTex || button.iconTex->m_texID == 0)
+@@ -664,28 +830,34 @@ void CHyprBar::updateRules() {
+         m_bTitleColorChanged = true;
+ }
+ 
+-void CHyprBar::damageOnButtonHover() {
++uint32_t CHyprBar::hoverMask() {
+     const auto BARPADDING       = g_pGlobalState->config.barPadding->value();
+     const auto BARBUTTONPADDING = g_pGlobalState->config.barButtonPadding->value();
+     const auto HEIGHT           = g_pGlobalState->config.barHeight->value();
+     const auto ALIGNBUTTONS     = g_pGlobalState->config.barButtonsAlignment->value();
+     const bool BUTTONSRIGHT     = ALIGNBUTTONS != "left";
++    const auto COORDS           = cursorRelativeToBar();
+ 
+     float      offset = BARPADDING;
+-
+-    const auto COORDS = cursorRelativeToBar();
+-
++    uint32_t   mask   = 0;
++    size_t     i      = 0;
+     for (auto& b : g_pGlobalState->buttons) {
+         const auto BARBUF     = Vector2D{(int)assignedBoxGlobal().w, HEIGHT};
+         Vector2D   currentPos = Vector2D{(BUTTONSRIGHT ? BARBUF.x - BARBUTTONPADDING - b.size - offset : offset), (BARBUF.y - b.size) / 2.0}.floor();
+-
+-        bool       hover = VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + b.size + BARBUTTONPADDING, currentPos.y + b.size);
+-
+-        if (hover != m_bButtonHovered) {
+-            m_bButtonHovered = hover;
+-            damageEntire();
+-        }
+-
++        if (VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + b.size + BARBUTTONPADDING, currentPos.y + b.size))
++            mask |= (1u << i);
+         offset += BARBUTTONPADDING + b.size;
++        ++i;
++    }
++    return mask;
++}
++
++void CHyprBar::damageOnButtonHover() {
++    // Per-button hover tracking so moving between buttons redraws the halo
++    const uint32_t mask = hoverMask();
++    if (mask != m_iLastHoverMask) {
++        m_iLastHoverMask = mask;
++        m_bButtonHovered = mask != 0;
++        damageEntire();
+     }
+ }
+diff --git a/hyprbars/barDeco.hpp b/hyprbars/barDeco.hpp
+index a3b4e2d..6e766ac 100644
+--- a/hyprbars/barDeco.hpp
++++ b/hyprbars/barDeco.hpp
+@@ -66,6 +66,7 @@ class CHyprBar : public IHyprWindowDecoration {
+     bool                       m_hidden             = false;
+     bool                       m_bTitleColorChanged = false;
+     bool                       m_bButtonHovered     = false;
++    uint32_t                   m_iLastHoverMask     = 0;
+     bool                       m_bLastEnabledState  = false;
+     bool                       m_bWindowHasFocus    = false;
+     std::optional<CHyprColor>  m_bForcedBarColor;
+@@ -82,6 +83,7 @@ class CHyprBar : public IHyprWindowDecoration {
+     void renderBarButtons(CBox* barBox, const float scale, const float a);
+     void renderBarButtonsText(CBox* barBox, const float scale, const float a);
+     void damageOnButtonHover();
++    uint32_t hoverMask();
+ 
+     bool inputIsValid();
+     void onMouseButton(Event::SCallbackInfo& info, IPointer::SButtonEvent e);
+@@ -109,7 +111,13 @@ class CHyprBar : public IHyprWindowDecoration {
+     bool                m_bDraggingThis  = false;
+     bool                m_bTouchEv       = false;
+     bool                m_bDragPending   = false;
++    uint32_t            m_lastButton     = 0; // button of the last press on the bar (click announcements)
+     bool                m_bCancelledDown = false;
++    bool                m_bResizingThis  = false; // top-edge resize started from this bar
++    bool                m_bTopCursor     = false; // we set the top-edge resize cursor
++
++    // Which top edge/corner the pointer is on (Layout::eRectCorner), or 0
++    uint8_t             topResizeEdge();
+     int                 m_touchId        = 0;
+ 
+     // store hover state for buttons as a bitfield

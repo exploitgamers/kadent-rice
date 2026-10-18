@@ -1,0 +1,40 @@
+#!/bin/sh
+# Build ~/.config/quickshell/caelestia — Quickshell loads it instead of the installed
+# /etc/xdg/quickshell/caelestia. Every file is a symlink to the installed Caelestia
+# (so updates flow in), except the files changed by ~/.config/caelestia/caelestia-macos.patch:
+# the top bar (upstream PR #1748, ported to 2.5), the edge panels on the left, fullscreen
+# edge triggers, wallpaper reveal, keep-awake switch… Its source is the git branch in
+# ~/.local/opt/caelestia-port (commits on top of v2.5.0): edit there, then
+#   git -C ~/.local/opt/caelestia-port diff v2.5.0 HEAD -- . ':!README.md' ':!plugin' > ~/.config/caelestia/caelestia-macos.patch
+# Usage: rice-caelestia-overlay            build/refresh (run after Caelestia updates)
+#        rice-caelestia-overlay --remove   go back to stock Caelestia
+set -eu
+UP=/etc/xdg/quickshell/caelestia
+OV="$HOME/.config/quickshell/caelestia"
+PATCH="$HOME/.config/caelestia/caelestia-macos.patch"
+
+if [ "${1:-}" = "--remove" ]; then
+    rm -rf "$OV" "$OV.new" "$OV.old"
+    echo "Removed — stock Caelestia will load. Restart: qs -c caelestia kill; caelestia shell -d"
+    exit 0
+fi
+
+NEW="$OV.new"
+rm -rf "$NEW"
+mkdir -p "$NEW"
+cp -rs "$UP/." "$NEW/"
+for f in $(grep '^+++ ' "$PATCH" | awk '{print $2}' | sed 's|^b/||'); do
+    rm -f "$NEW/$f"
+    [ -e "$UP/$f" ] && cp "$UP/$f" "$NEW/$f" # new files come from the patch itself
+done
+if ! (cd "$NEW" && patch -p1 --no-backup-if-mismatch -s < "$PATCH"); then
+    echo "Patch no longer applies to this Caelestia version — kept the current overlay." >&2
+    echo "(Use 'rice-caelestia-overlay --remove' to fall back to stock Caelestia.)" >&2
+    rm -rf "$NEW"
+    exit 1
+fi
+pacman -Q caelestia-shell > "$NEW/.built-from"
+rm -rf "$OV.old"
+[ -e "$OV" ] && mv "$OV" "$OV.old"
+mv "$NEW" "$OV"
+echo "Caelestia overlay built for $(cat "$OV/.built-from"). Restart: qs -c caelestia kill; caelestia shell -d"

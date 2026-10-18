@@ -1,0 +1,41 @@
+#!/bin/sh
+# Health check for the macOS-on-Caelestia setup (read-only).
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
+bad()  { printf '  \033[31m✗\033[0m %s\n      → %s\n' "$1" "$2"; FAIL=1; }
+FAIL=0
+QS="$HOME/.local/opt/quickshell-local"
+PLUG="$HOME/.local/lib/hyprland/plugins"
+
+echo "Quickshell (local build)"
+qt_now=$(pacman -Q qt6-base 2>/dev/null | awk '{print $2}' | cut -d- -f1)
+qt_built=$(cat "$QS/BUILT_WITH_QT" 2>/dev/null)
+if [ "$qt_now" = "$qt_built" ]; then ok "built for Qt $qt_built (system has $qt_now)"
+else bad "built for Qt ${qt_built:-?} but system has Qt $qt_now" "run: rice-rebuild quickshell"; fi
+command -v qs | grep -q "$HOME/.local/bin" && ok "qs resolves to ~/.local/bin/qs" || bad "qs is $(command -v qs)" "~/.local/bin must come first in PATH (hypr-user.lua sets it)"
+
+echo "Shells"
+pgrep -f "quickshell -c caelestia" >/dev/null && ok "Caelestia running" || bad "Caelestia not running" "caelestia shell -d   (or CTRL+SUPER+ALT+R)"
+pgrep -f "quickshell -c macos" >/dev/null && ok "dock/launcher/widgets running" || bad "macos shell not running" "qs -c macos -d"
+python3 -c "import json,sys;json.load(open(sys.argv[1]))" "$HOME/.config/caelestia/macos.json" 2>/dev/null && ok "macos.json is valid" || bad "macos.json invalid" "fix the JSON syntax"
+
+OV="$HOME/.config/quickshell/caelestia"
+if [ -d "$OV" ]; then
+    now=$(pacman -Q caelestia-shell 2>/dev/null)
+    built=$(cat "$OV/.built-from" 2>/dev/null)
+    [ "$now" = "$built" ] && ok "Caelestia fullscreen overlay matches $now" || bad "Caelestia overlay built for '${built:-?}' but installed is '$now'" "run: rice-caelestia-overlay  (then: qs -c caelestia kill; caelestia shell -d)"
+fi
+
+echo "Hyprland"
+hl_now=$(hyprctl version -j 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin)['commit'])" 2>/dev/null)
+hl_built=$(cat "$PLUG/BUILT_FOR_HYPRLAND" 2>/dev/null)
+[ "$hl_now" = "$hl_built" ] && ok "title-bar plugin built for this Hyprland (${hl_now%%????????????????????????????????})" || bad "title-bar plugin built for another Hyprland" "run: rice-rebuild hyprbars  (then log out and back in)"
+hyprctl plugin list 2>/dev/null | grep -q hyprbars && ok "title-bar plugin loaded" || bad "title-bar plugin not loaded" "log out and back in (it loads once at login; never load/unload it live — that crashed Hyprland on 2026-10-09)"
+errs=$(hyprctl configerrors 2>/dev/null | grep -v '^\s*$')
+[ -z "$errs" ] && ok "no Hyprland config errors" || bad "config errors: $errs" "check ~/.config/caelestia/*.lua"
+# moving/resizing a window from window.open_early aborts Hyprland (crashed it twice, 2026-10-10)
+early=$(awk '/hl\.on\("window\.open_early"/{f=1} f&&/window\.(move|resize)/{print FILENAME":"FNR} f&&/^end\)/{f=0}' "$HOME"/.config/caelestia/*.lua "$HOME"/.config/hypr/hyprland/*.lua 2>/dev/null)
+[ -z "$early" ] && ok "no window moves in window.open_early" || bad "window move/resize in window.open_early: $early" "do it in window.open instead — this crashes Hyprland"
+crashes=$(coredumpctl list --since '-24h' --no-pager 2>/dev/null | grep -c '/usr/bin/Hyprland')
+[ "$crashes" = 0 ] && ok "no Hyprland crashes in the last 24 h" || bad "$crashes Hyprland crash(es) in the last 24 h" "coredumpctl info <PID> — after 2 in a row Hyprland starts in safe mode (recoverycfg.lua); log out/in once fixed"
+
+[ $FAIL = 0 ] && echo "All good." || exit 1

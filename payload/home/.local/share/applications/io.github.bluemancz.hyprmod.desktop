@@ -1,0 +1,14 @@
+[Desktop Entry]
+# hidden by Desktop Settings merge; delete this file to show it again
+NoDisplay=true
+Type=Application
+Name=HyprMod
+GenericName=Hyprland Settings
+Comment=A native GTK4/libadwaita settings app for Hyprland
+Exec=hyprmod
+Icon=io.github.bluemancz.hyprmod
+Terminal=false
+Categories=Settings;DesktopSettings;GTK;
+Keywords=hyprland;compositor;wayland;configuration;monitors;keybinds;
+StartupNotify=true
+StartupWMClass=io.github.bluemancz.hyprmod

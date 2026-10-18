@@ -1,0 +1,12 @@
+#!/bin/sh
+# Quickshell 0.3.2 built locally against the system Qt 6.12
+# (repo package is built for Qt 6.11 and crashes). Source: ~/.local/opt/qs-build/src-git
+# Remove this wrapper once `pacman -Q quickshell` is rebuilt for your Qt.
+R="$HOME/.local/opt/quickshell-local"
+export QML_IMPORT_PATH="$R/lib/qt6/qml${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
+# shell launches (not ipc/log/kill/list calls) run without transparent huge pages: see rice-nothp
+case " $* " in
+    *" ipc "* | *" log "* | *" kill "* | *" list "* | *" --help "* | *" --version "*) ;;
+    *) [ -x "$HOME/.local/bin/rice-nothp" ] && exec "$HOME/.local/bin/rice-nothp" "$R/bin/quickshell" "$@" ;;
+esac
+exec "$R/bin/quickshell" "$@"

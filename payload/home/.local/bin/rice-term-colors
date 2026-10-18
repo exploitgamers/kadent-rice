@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""Wallpaper-matched, always-legible terminal colours.
+
+Caelestia derives the terminal palette from the wallpaper, but its black /
+bright-black / blue slots can end up nearly invisible on the background. This
+takes those four slots from the current scheme (outline, onSurfaceVariant,
+primary, tertiary — so they match the wallpaper), nudges each toward the text
+colour until it reaches a minimum contrast against the background, then:
+  * writes the sequences to ~/.local/state/caelestia/theme/term-legible.seq
+    (applied by new fish shells, see ~/.config/caelestia/user-config.fish)
+  * pushes them to already-open terminals, like Caelestia itself does.
+Run automatically by the postHook in ~/.config/caelestia/cli.json.
+"""
+import glob
+import json
+import os
+from pathlib import Path
+
+STATE = Path.home() / ".local/state/caelestia"
+OUT = STATE / "theme/term-legible.seq"
+
+# (ANSI slot, scheme colour, minimum contrast ratio against the background)
+SLOTS = [(0, "outline", 4.5), (8, "onSurfaceVariant", 7.0), (4, "primary", 4.5), (12, "tertiary", 4.5)]
+
+
+def rgb(h):
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def luminance(c):
+    def ch(v):
+        v /= 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = (ch(v) for v in c)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(a, b):
+    la, lb = luminance(a), luminance(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def mix(a, b, t):
+    return tuple(round(x + (y - x) * t) for x, y in zip(a, b))
+
+
+def legible(colour, bg, fg, minimum):
+    """Move colour toward the text colour until it's readable on bg."""
+    for step in range(21):
+        c = mix(colour, fg, step / 20)
+        if contrast(c, bg) >= minimum:
+            return c
+    return fg
+
+
+def main():
+    scheme = json.loads((STATE / "scheme.json").read_text())["colours"]
+    bg, fg = rgb(scheme["background"]), rgb(scheme["onSurface"])
+
+    seq = ""
+    for slot, name, minimum in SLOTS:
+        r, g, b = legible(rgb(scheme[name]), bg, fg, minimum)
+        seq += f"\033]4;{slot};rgb:{r:02x}/{g:02x}/{b:02x}\033\\"
+
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(seq)
+
+    # Open terminals: write to the user's own pseudo-terminals (as Caelestia does)
+    uid = os.getuid()
+    for pts in glob.glob("/dev/pts/[0-9]*"):
+        try:
+            if os.stat(pts).st_uid == uid:
+                with open(pts, "w") as t:
+                    t.write(seq)
+        except OSError:
+            pass
+
+
+if __name__ == "__main__":
+    main()

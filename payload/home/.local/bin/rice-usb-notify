@@ -1,0 +1,88 @@
+#!/bin/bash
+# Notifications for removable drives (USB sticks, SD cards, external disks):
+# "connected" with Mount & Open / Ignore, "mounted" with Open / Eject, "safe to
+# remove", and a warning when a drive is pulled while still mounted.
+# Event-driven: one `udevadm monitor` pipe, no polling. Started at log-in from
+# hypr-user.lua. Testing only: RICE_USB_TEST=1 also accepts loop devices; RICE_USB_NOTIFY=<cmd> replaces notify-send.
+# Drive labels are untrusted: never eval'd, always passed as single arguments,
+# and markup-escaped before they reach the notification.
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/rice-usb-notify${RICE_USB_TEST:+-test}.lock"; flock -n 9 || exit 0 # one instance
+for v in $(env | sed -n 's/^\(CLAUDE[A-Z_]*\)=.*/\1/p'); do unset "$v"; done
+
+esc() { local s=${1//\&/\&amp;}; s=${s//</\&lt;}; s=${s//>/\&gt;}; printf '%s' "$s"; } # \& = literal & (bash 5.2 patsub_replacement)
+note() { "${RICE_USB_NOTIFY:-notify-send}" -a Drives -i drive-removable-media "$@"; } # $1 = summary (escaped by caller)
+mountpoint_of() { findmnt -rn -S "$1" -o TARGET | head -n1 | sed 's/\\x20/ /g'; }
+open_dir() { setsid -f thunar "$1" >/dev/null 2>&1; } # xdg-open would pick VSCodium (inode/directory default)
+
+eject() { # $1 = dev, $2 = label
+    local dev=$1 name=$2 disk out p
+    disk=/dev/$(lsblk -no PKNAME "$dev" | head -n1)
+    [ "$disk" = /dev/ ] && disk=$dev
+    # unmount every mounted filesystem on the same disk, like Finder's Eject
+    for p in $(lsblk -lnpo NAME "$disk"); do
+        [ -n "$(findmnt -rn -S "$p")" ] || continue
+        if ! out=$(udisksctl unmount -b "$p" --no-user-interaction 2>&1); then
+            if [[ $out == *busy* ]]; then
+                note -u critical -- "Couldn't eject $(esc "$name")" "It's in use. Close the files and windows using it, then try again."
+            else
+                note -u critical -- "Couldn't eject $(esc "$name")" "$(esc "${out:0:200}")"
+            fi
+            return
+        fi
+    done
+    if [[ $disk == /dev/loop* ]]; then
+        out=$(udisksctl loop-delete -b "$disk" --no-user-interaction 2>&1)
+    else
+        out=$(udisksctl power-off -b "$disk" --no-user-interaction 2>&1)
+    fi || { note -- "$(esc "$name") unmounted" "It can be removed, but the drive couldn't be powered off: $(esc "${out:0:160}")"; return; }
+    note -- "Safe to remove $(esc "$name")" "You can unplug it now."
+}
+
+mounted_note() { # $1 = dev, $2 = label
+    local mp act
+    mp=$(mountpoint_of "$1")
+    act=$(note -A open=Open -A eject=Eject -- "$(esc "$2") mounted" "$(esc "$mp")")
+    case $act in
+        open) open_dir "$mp" ;;
+        eject) eject "$1" "$2" ;;
+    esac
+}
+
+on_add() { # $1 = dev, $2 = label, $3 = size
+    local act out
+    sleep 1.5 # let an auto-mounter (gvfs/thunar-volman) go first, so we never double-mount
+    [ -b "$1" ] || return
+    if [ -n "$(findmnt -rn -S "$1")" ]; then mounted_note "$1" "$2"; return; fi
+    act=$(note -A mount="Mount & Open" -A ignore=Ignore -- "$(esc "$2") connected" "$(esc "$3")")
+    [ "$act" = mount ] || return
+    if [ -z "$(findmnt -rn -S "$1")" ] && ! out=$(udisksctl mount -b "$1" --no-user-interaction 2>&1); then
+        note -u critical -- "Couldn't mount $(esc "$2")" "$(esc "${out:0:200}")"
+        return
+    fi
+    open_dir "$(mountpoint_of "$1")"
+    mounted_note "$1" "$2"
+}
+
+handle() { # props in P; KERNEL remove arrives before udisks cleans up the mount
+    local dev=/dev/${P[DEVNAME]#/dev/} label mp
+    [[ $dev == /dev/sd* || $dev == /dev/mmcblk* || ( -n $RICE_USB_TEST && $dev == /dev/loop* ) ]] || return
+    if [ "$SRC" = KERNEL ] && [ "${P[ACTION]}" = remove ]; then
+        mp=$(mountpoint_of "$dev")
+        [ -n "$mp" ] && note -u critical -- "$(esc "${mp##*/}") was removed" "Eject drives before unplugging them to avoid losing data." &
+    elif [ "$SRC" = UDEV ] && [ "${P[ACTION]}" = add ] && [ "${P[ID_FS_USAGE]}" = filesystem ] && [ "${P[UDISKS_IGNORE]}" != 1 ]; then
+        [ -n "$RICE_USB_TEST" ] || [ "$(lsblk -dno HOTPLUG "$dev")" = 1 ] || [ "${P[ID_BUS]}" = usb ] || return
+        label=${P[ID_FS_LABEL]:-${P[ID_MODEL]//_/ }}
+        on_add "$dev" "${label:-Drive}" "$(lsblk -dno SIZE "$dev" | tr -d ' ')" &
+    fi
+}
+
+declare -A P
+SRC=
+udevadm monitor --udev --kernel --subsystem-match=block --property | while IFS= read -r line; do
+    case $line in
+        KERNEL\[*) SRC=KERNEL; P=() ;;
+        UDEV\ *) SRC=UDEV; P=() ;;
+        '') [ -n "$SRC" ] && handle; SRC= ;;
+        *=*) [ -n "$SRC" ] && P[${line%%=*}]=${line#*=} ;;
+    esac
+done

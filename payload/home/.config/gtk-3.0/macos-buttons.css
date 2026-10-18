@@ -1,0 +1,39 @@
+/* macOS traffic lights for GTK3 apps that draw their own title bar — this
+   includes Firefox, which renders its window buttons with GTK3 styles.
+   Glyph on hover, halo + darker shade on the hovered button, grey when
+   unfocused. Imported from gtk.css (re-linked by the postHook in
+   ~/.config/caelestia/cli.json after every theme change). */
+
+headerbar button.titlebutton,
+.titlebar button.titlebutton {
+  min-width: 13px;
+  min-height: 13px;
+  padding: 0;
+  margin: 0 4px;
+  border-radius: 9999px;
+  border: none;
+  box-shadow: none;
+  background-image: none;
+  color: transparent;
+  -gtk-icon-shadow: none;
+  -gtk-icon-transform: scale(0.62);
+  transition: box-shadow 120ms ease-out, background-color 120ms ease-out;
+}
+
+headerbar button.titlebutton.close,    .titlebar button.titlebutton.close    { background-color: #ff5f57; }
+headerbar button.titlebutton.minimize, .titlebar button.titlebutton.minimize { background-color: #febc2e; }
+headerbar button.titlebutton.maximize, .titlebar button.titlebutton.maximize { background-color: #28c840; }
+
+/* Hovered light: glyph, halo and a darker shade */
+headerbar button.titlebutton:hover, .titlebar button.titlebutton:hover { color: rgba(0, 0, 0, 0.75); }
+headerbar button.titlebutton.close:hover,    .titlebar button.titlebutton.close:hover    { background-color: #d14f48; box-shadow: 0 0 0 3px alpha(#ff5f57, 0.38); }
+headerbar button.titlebutton.minimize:hover, .titlebar button.titlebutton.minimize:hover { background-color: #d09a26; box-shadow: 0 0 0 3px alpha(#febc2e, 0.38); }
+headerbar button.titlebutton.maximize:hover, .titlebar button.titlebutton.maximize:hover { background-color: #21a434; box-shadow: 0 0 0 3px alpha(#28c840, 0.38); }
+
+/* Unfocused window: grey lights until hovered */
+headerbar:backdrop button.titlebutton:not(:hover),
+.titlebar:backdrop button.titlebutton:not(:hover) { background-color: alpha(#ffffff, 0.18); }
+
+/* Same 12px inset from the window edge as the hyprbars title bars */
+headerbar box.left > button.titlebutton:first-child,
+.titlebar box.left > button.titlebutton:first-child { margin-left: 8px; }

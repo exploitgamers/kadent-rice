@@ -1,0 +1,113 @@
+/* macOS traffic lights for Firefox's own title-bar buttons, matching the
+   hyprbars title bars and GTK apps: glyphs on hover, halo + darker shade on
+   the hovered button, grey when the window is unfocused.
+   Requires toolkit.legacyUserProfileCustomizations.stylesheets (user.js). */
+
+/* Uniform with hyprbars (hypr-titlebars.lua: size 12, bar_button_padding 7, bar_padding 12):
+   12px lights, 7px gaps, 12px from the edge */
+.titlebar-buttonbox { gap: 7px !important; margin-inline: 12px 8px !important; }
+
+.titlebar-button {
+  appearance: none !important;
+  list-style-image: none !important; /* hide Firefox's own glyphs */
+  -moz-context-properties: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: none !important;
+}
+
+.titlebar-button > .toolbarbutton-icon {
+  appearance: none !important;
+  list-style-image: none !important;
+  width: 12px !important;
+  height: 12px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  background-image: none !important; /* GTK's own window-*-symbolic glyphs: none at rest */
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 12px 12px !important;
+  transition: box-shadow 120ms ease-out, filter 120ms ease-out, background-color 120ms ease-out;
+}
+
+.titlebar-close > .toolbarbutton-icon { background-color: #ff5f57 !important; }
+.titlebar-min > .toolbarbutton-icon { background-color: #febc2e !important; }
+.titlebar-max > .toolbarbutton-icon,
+.titlebar-restore > .toolbarbutton-icon { background-color: #28c840 !important; }
+
+/* Glyphs on every light while the group is hovered, drawn in px (12-unit viewBox) at the size of
+   hyprbars' bold 9.6 px ×/−/+ (ink about 5-6 px, 1.25 px strokes, black at 75 %) */
+.titlebar-buttonbox:hover .titlebar-close > .toolbarbutton-icon { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M4 4l4 4M8 4l-4 4' stroke='rgba(0,0,0,0.75)' stroke-width='1.25' stroke-linecap='round'/></svg>") !important; }
+.titlebar-buttonbox:hover .titlebar-min > .toolbarbutton-icon { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3.75 6h4.5' stroke='rgba(0,0,0,0.75)' stroke-width='1.25' stroke-linecap='round'/></svg>") !important; }
+.titlebar-buttonbox:hover .titlebar-max > .toolbarbutton-icon,
+.titlebar-buttonbox:hover .titlebar-restore > .toolbarbutton-icon { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 3.75v4.5M3.75 6h4.5' stroke='rgba(0,0,0,0.75)' stroke-width='1.25' stroke-linecap='round'/></svg>") !important; }
+
+/* The light under the pointer: halo + darker fill (a filter would muddy the halo too) */
+.titlebar-close:hover > .toolbarbutton-icon { box-shadow: 0 0 0 3px rgba(255, 95, 87, 0.38) !important; background-color: #d14e47 !important; }
+.titlebar-min:hover > .toolbarbutton-icon { box-shadow: 0 0 0 3px rgba(254, 188, 46, 0.38) !important; background-color: #d09a26 !important; }
+.titlebar-max:hover > .toolbarbutton-icon,
+.titlebar-restore:hover > .toolbarbutton-icon { box-shadow: 0 0 0 3px rgba(40, 200, 64, 0.38) !important; background-color: #21a434 !important; }
+.titlebar-button:active > .toolbarbutton-icon { filter: brightness(0.7); }
+
+/* Unfocused window: grey until the group is hovered */
+:root:-moz-window-inactive .titlebar-buttonbox:not(:hover) .titlebar-button > .toolbarbutton-icon { background-color: rgba(255, 255, 255, 0.18) !important; }
+
+/* Smaller text in Firefox's own UI — tabs, address bar, bookmarks, menus — to sit
+   with the desktop's 10 pt title bars. Web pages are unaffected (zoom with Ctrl +/-). */
+#navigator-toolbox, #navigator-toolbox *,
+menupopup, menupopup *, panel, panel * {
+  font-size: 12px !important;
+}
+/* ...except the address bar's hidden "a" (Firefox keeps it at font-size 0 so the search
+   button thinks it has a label); the rule above made it show next to the drop-down arrow. */
+#navigator-toolbox .urlbar-visually-hidden { font-size: 0 !important; }
+
+/* Full screen (F11): Firefox's window buttons, as the traffic lights above, at the left
+   of the tab strip like macOS. The system button layout is empty (every app gets the
+   desktop's title bar instead), and Firefox hides each button that layout leaves out —
+   so full-screen Firefox had no way to close, minimise or leave full screen.
+   Red closes, yellow minimises, green leaves full screen. */
+:root[inFullscreen] .titlebar-buttonbox-container { order: -1 !important; }
+:root[inFullscreen] .titlebar-buttonbox { display: flex !important; }
+:root[inFullscreen] :is(.titlebar-close, .titlebar-min, .titlebar-restore) { display: flex !important; }
+:root[inFullscreen] .titlebar-close { order: 0 !important; }
+:root[inFullscreen] .titlebar-min { order: 1 !important; }
+:root[inFullscreen] .titlebar-restore { order: 2 !important; }
+/* leaving full screen: diagonal arrows pointing inward, like macOS */
+:root[inFullscreen] .titlebar-buttonbox:hover .titlebar-restore > .toolbarbutton-icon { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 13'><path d='M3 3l4 4M3 3v3M3 3h3M10 10L6 6M10 10V7M10 10H7' fill='none' stroke='rgba(0,0,0,0.75)' stroke-width='1.35' stroke-linecap='round' stroke-linejoin='round'/></svg>") !important; }
+
+/* Firefox 157's search-mode button has a garbled dropmarker glyph ("↘a") in
+   the urlbar. Keep the magnifier and its existing search behavior, hide this
+   adjacent mode-switcher control until Firefox fixes its icon. */
+#urlbar .searchmode-switcher { display: none !important; }
+
+/* Full screen: the strip that brings the tabs and toolbar down is 1 px tall at the very
+   top, but Hyprland keeps the pointer 1 px inside the screen edges — it could never
+   reach it. A few px tall, it does. */
+#fullscr-toggler { height: 4px !important; }
+
+/* Proportions: the tab strip is as tall as the desktop's 28 px title bar above it (it was
+   36 px: a 29 px compact tab + 4 px margins above and below), so the title bar and tabs
+   read as one even stack: 22 px tab + 3 px margins = 28.
+   (Firefox's variable is --tab-margin-block; the old --tab-block-margin did nothing.)
+   The address bar row follows: 26 px field + 3 px above/below = 32, so the stack reads
+   28 title bar / 28 tabs / 32 toolbar instead of 28 / 30 / 37. */
+:root {
+  --tab-min-height: 22px !important;
+  --tab-margin-block: 3px !important;
+  --urlbar-height: 26px !important;
+  --urlbar-padding-block: 3px !important;
+}
+
+/* Hover boxes sized to those proportions (compact density gave 28 px toolbar buttons that
+   filled the 32 px row edge to edge, and 24 px tab close buttons taller than the 22 px tab):
+   toolbar buttons 26 px like the address bar (3 px above/below), tab-strip buttons as tall
+   as a tab (22 px, also below 900 px wide where Firefox drops its own rule), the tab close
+   button 16 px around its 12 px icon (3 px inside the tab). Radii keep Firefox's 8 px, the
+   close button 5 px (8 - its 3 px inset), so the corners stay concentric. */
+#nav-bar { --toolbarbutton-padding-inner: 5px !important; }
+#TabsToolbar { --toolbarbutton-padding-inner: calc((var(--tab-min-height) - 16px) / 2) !important; }
+:root {
+  --tab-content-button-size: 16px !important;
+  --tab-content-button-padding: 2px !important;
+}

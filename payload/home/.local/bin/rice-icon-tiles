@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Which app icons need a rounded tile to match WhiteSur's squircle icons.
+
+For every installed app (desktop entries), resolve its Icon= through the
+WhiteSur-dark theme, render it at 64 px and measure how much of the opaque
+area's bounding box is filled: a rounded-square tile fills ~95 %, a circle
+~79 %, odd shapes less. Below 88 % → needs a tile. Results are cached in
+~/.cache/macos-icon-tiles.json ({ icon name: true|false }); only icons not yet
+in the cache, or whose icon file changed (e.g. given a macOS icon since — kept in
+"__paths__"), are measured. Used by the dock (IconTiles.qml).
+Usage: rice-icon-tiles [--all]   (--all re-measures everything)
+"""
+import glob
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk  # noqa: E402
+from PIL import Image  # noqa: E402
+
+CACHE = os.path.expanduser("~/.cache/macos-icon-tiles.json")
+THRESHOLD = 0.88
+
+
+def icon_names():
+    dirs = [os.path.expanduser("~/.local/share/applications"), "/usr/share/applications", "/usr/local/share/applications",
+            os.path.expanduser("~/.local/share/flatpak/exports/share/applications"), "/var/lib/flatpak/exports/share/applications"]
+    names = set()
+    for d in dirs:
+        for f in glob.glob(os.path.join(d, "*.desktop")):
+            try:
+                for line in open(f, errors="ignore"):
+                    if line.startswith("Icon="):
+                        names.add(line[5:].strip())
+                        break
+            except OSError:
+                pass
+    return names
+
+
+def resolve(theme, name):
+    if os.path.isabs(name):
+        return name if os.path.exists(name) else None
+    info = theme.lookup_icon(name, 128, 0)
+    return info.get_filename() if info else None
+
+
+def fill_ratio(path):
+    with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
+        if path.endswith(".svg"):
+            r = subprocess.run(["rsvg-convert", "-w", "64", "-h", "64", "-o", tmp.name, path], capture_output=True, timeout=10)
+            if r.returncode != 0:
+                return None
+            img = Image.open(tmp.name)
+        else:
+            img = Image.open(path)
+        img = img.convert("RGBA").resize((64, 64))
+    alpha = img.getchannel("A").point(lambda a: 255 if a > 40 else 0)
+    box = alpha.getbbox()
+    if not box:
+        return None
+    crop = alpha.crop(box)
+    filled = crop.histogram()[255] / (crop.width * crop.height)
+    return filled
+
+
+def main():
+    cache = {}
+    if os.path.exists(CACHE) and "--all" not in sys.argv:
+        try:
+            cache = json.load(open(CACHE))
+        except ValueError:
+            cache = {}
+    paths = cache.pop("__paths__", {})
+    theme = Gtk.IconTheme()
+    theme.set_custom_theme("WhiteSur-dark")
+    for name in sorted(icon_names()):
+        path = resolve(theme, name)
+        if name in cache and paths.get(name) == path:
+            continue
+        ratio = fill_ratio(path) if path else None
+        cache[name] = ratio is not None and ratio < THRESHOLD
+        paths[name] = path
+    cache["__paths__"] = paths
+    os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+    tmp = CACHE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(cache, f, indent=0, sort_keys=True)
+    os.replace(tmp, CACHE)
+
+
+if __name__ == "__main__":
+    main()

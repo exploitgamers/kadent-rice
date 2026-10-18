@@ -1,0 +1,113 @@
+{
+  "appearance": {
+    "deformScale": 0,
+    "anim": {
+      "durations": {
+        "scale": 1.0
+      }
+    },
+    "transparency": {
+      "enabled": true,
+      "base": 0.72,
+      "layers": 0.45
+    },
+    "font": {
+      "headline": {
+        "family": "Inter Display"
+      },
+      "title": {
+        "family": "Inter"
+      },
+      "body": {
+        "family": "Inter"
+      },
+      "label": {
+        "family": "Inter"
+      },
+      "clock": "Inter Display"
+    },
+    "rounding": {
+      "scale": 0.75
+    }
+  },
+  "bar": {
+    "persistent": true,
+    "showOnHover": false,
+    "entries": [
+      {
+        "id": "logo",
+        "enabled": true
+      },
+      {
+        "id": "workspaces",
+        "enabled": true
+      },
+      {
+        "id": "spacer",
+        "enabled": true
+      },
+      {
+        "id": "spacer",
+        "enabled": true
+      },
+      {
+        "id": "tray",
+        "enabled": true
+      },
+      {
+        "id": "statusIcons",
+        "enabled": true
+      },
+      {
+        "id": "clock",
+        "enabled": true
+      },
+      {
+        "id": "power",
+        "enabled": true
+      }
+    ],
+    "workspaces": {
+      "showWindows": true,
+      "maxWindowIcons": 3
+    },
+    "clock": {
+      "background": true
+    },
+    "tray": {
+      "background": true
+    }
+  },
+  "border": {
+    "thickness": 0,
+    "rounding": 20
+  },
+  "dashboard": {
+    "showOnHover": false,
+    "enabled": false
+  },
+  "launcher": {
+    "showOnHover": false
+  },
+  "sidebar": {
+    "enabled": true,
+    "showOnHover": false,
+    "minHoverThreshold": 220
+  },
+  "osd": {
+    "enabled": false,
+    "enableBrightness": true,
+    "hideDelay": 1500
+  },
+  "general": {
+    "showOverFullscreen": true
+  },
+  "utilities": {
+    "cards": {
+      "keepAwake": false
+    }
+  },
+  "services": {
+    "audioIncrement": 0.05
+  }
+}

@@ -1,0 +1,6 @@
+# built installer, logs and the fingerprint
+dist/
+# AUR packages repacked from the build machine (binary, ~25 MB)
+payload/pkgs/
+payload/.repack.*
+.refresh.lock

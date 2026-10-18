@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Desktop Settings
+Comment=Dock, widgets, windows, hot corners, menu bar, Night Shift and more
+Exec=qs -c macos ipc call settings open
+Icon=preferences-desktop
+Categories=Settings;DesktopSettings;
+Keywords=dock;widgets;hot corners;night shift;game mode;wallpaper;theme;menu bar;
+OnlyShowIn=Hyprland;

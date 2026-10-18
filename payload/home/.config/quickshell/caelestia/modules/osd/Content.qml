@@ -1,0 +1,1 @@
+/etc/xdg/quickshell/caelestia/./modules/osd/Content.qml

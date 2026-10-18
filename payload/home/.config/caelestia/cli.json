@@ -1,0 +1,6 @@
+{
+    "theme": {
+        "iconTheme": "WhiteSur-dark",
+        "postHook": "for v in gtk-3.0 gtk-4.0; do f=\"$HOME/.config/$v/gtk.css\"; grep -q macos-buttons \"$f\" || echo '@import \"macos-buttons.css\";' >> \"$f\"; done; \"$HOME/.local/bin/rice-term-colors\"; q=\"$HOME/.config/qtengine/config.json\"; jq '.theme.font={family:\"Inter\",size:9,weight:-1} | .theme.fontFixed={family:\"Monospace\",size:9,weight:-1}' \"$q\" > \"$q.tmp\" && mv \"$q.tmp\" \"$q\""
+    }
+}

@@ -1,0 +1,1 @@
+/etc/xdg/quickshell/caelestia/./modules/nexus/pages/audio/AppVolumes.qml

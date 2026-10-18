@@ -1,0 +1,37 @@
+#!/bin/sh
+# Restart the dock/launcher/widgets shell (and optionally Caelestia), killing EVERY
+# running instance first — `qs -c NAME kill` only stops one when several exist,
+# which let duplicate docks pile up.
+# Usage: rice-restart            dock/launcher/widgets (qs -c macos)
+#        rice-restart all        also Caelestia
+# Don't pass Claude Code's session markers on to the desktop: apps launched from
+# the dock inherit the shells' environment, and a `claude` started there with
+# CLAUDE_CODE_CHILD_SESSION set doesn't save its transcript (2026-10-10).
+for v in $(env | sed -n 's/^\(CLAUDE[A-Z_]*\)=.*/\1/p'); do unset "$v"; done
+set -u
+PATH="$HOME/.local/bin:$PATH"
+kill_config() { # $1 = config dir name; also kills its monitor children (nmcli/gsettings monitor), which a SIGTERMed shell leaves orphaned
+    for pid in $(pgrep -x quickshell); do
+        tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q -- "-c $1 " && kill "$pid" $(pgrep -P "$pid")
+    done
+    sleep 0.6
+}
+kill_config macos
+if [ "${1:-}" = "all" ]; then
+    # Caelestia forgets "Block sleep and screen locking" on restart: carry it over
+    inhibit=$("$HOME/.local/bin/qs" -c caelestia ipc call idleInhibitor isEnabled 2>/dev/null || true)
+    kill_config caelestia
+    setsid caelestia shell -d >/dev/null 2>&1 &
+    if [ "$inhibit" = true ]; then
+        (sleep 6; "$HOME/.local/bin/qs" -c caelestia ipc call idleInhibitor enable >/dev/null 2>&1) &
+    fi
+fi
+setsid qs -c macos -d >/dev/null 2>&1 &
+sleep 3
+for c in macos caelestia; do
+    n=0
+    for pid in $(pgrep -x quickshell); do
+        tr '\0' ' ' < "/proc/$pid/cmdline" | grep -q -- "-c $c " && n=$((n + 1))
+    done
+    echo "$c instances: $n"
+done

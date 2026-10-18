@@ -1,0 +1,31 @@
+#!/bin/sh
+# Start Caelestia and the dock/launcher shell if either isn't running (never kills,
+# never duplicates). Hyprland runs this after every monitor change: Caelestia has
+# exited when the laptop panel was reconnected, taking the wallpaper, side bar and
+# edge panels with it.
+# Don't pass Claude Code's session markers on to the desktop: apps launched from
+# the dock inherit the shells' environment, and a `claude` started there with
+# CLAUDE_CODE_CHILD_SESSION set doesn't save its transcript (2026-10-10).
+for v in $(env | sed -n 's/^\(CLAUDE[A-Z_]*\)=.*/\1/p'); do unset "$v"; done
+PATH="$HOME/.local/bin:$PATH"
+running() { # $1 = config dir name
+    for pid in $(pgrep -x quickshell); do
+        tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q -- "-c $1 " && return 0
+    done
+    return 1
+}
+# One at a time: a monitor change fires several Hyprland events at once, and
+# parallel runs each saw "not running" and started a shell — two Caelestias
+# stacked their side-bar reservations (windows sat 112 px from the left edge).
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/rice-ensure-shells.lock"
+flock -n 9 || exit 0
+
+started=""
+running caelestia || { setsid caelestia shell -d >/dev/null 2>&1 & started="$started caelestia"; }
+running macos || { setsid qs -c macos -d >/dev/null 2>&1 & started="$started macos"; }
+
+# hold the lock until what we started shows up (max ~10 s)
+for name in $started; do
+    i=0
+    until running "$name" || [ $i -ge 50 ]; do sleep 0.2; i=$((i + 1)); done
+done

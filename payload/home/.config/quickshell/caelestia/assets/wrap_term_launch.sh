@@ -1,0 +1,1 @@
+/etc/xdg/quickshell/caelestia/./assets/wrap_term_launch.sh
