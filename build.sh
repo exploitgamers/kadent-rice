@@ -197,21 +197,22 @@ done
 # ---------------------------------------------------------------- repo packages (checked now)
 say "Checking repo package names"
 grep -v '^\s*#' "$HERE/repo-packages.txt" | tr -s ' \t' '\n' | grep . > "$P/repo-packages.txt"
-# only Arch's own repos count: CachyOS-only packages ([cachyos*]) don't exist on plain Arch
-ARCH_PKGS=$(pacman -Slq core extra multilib | sort -u)
-[ -n "$ARCH_PKGS" ] || die "pacman -Slq core extra multilib listed nothing (are those repos in pacman.conf?)"
+# only Arch's own default repos count: CachyOS-only packages ([cachyos*]) don't exist on plain Arch,
+# and [multilib] is off in Arch's default pacman.conf
+ARCH_PKGS=$(pacman -Slq core extra | sort -u) && [ -n "$ARCH_PKGS" ] ||
+    die "pacman -Slq core extra listed nothing (are those repos in pacman.conf and synced?)"
 missing=$(sort -u "$P/repo-packages.txt" | comm -23 - <(echo "$ARCH_PKGS") | tr '\n' ' ')
-[ -z "$missing" ] || die "not in Arch's core/extra/multilib (CachyOS-only or AUR - move to AUR=(...)): $missing"
-# AUR deps that must come from the repos
+[ -z "$missing" ] || die "not in Arch's core/extra (CachyOS-only or AUR - move to AUR=(...)): $missing"
+# AUR deps that must come from the repos (kept with their version constraint)
 for f in "$P"/pkgs/*.pkg.tar.zst; do
     bsdtar -xOf "$f" .PKGINFO | sed -n 's/^depend = //p'
-done | sed 's/[<>=].*//' | sort -u > "$P/.deps"
+done | sort -u > "$P/.deps"
 own=$(for a in "${AUR[@]}"; do echo "$a"; done)
 while read -r d; do
-    grep -qx "$d" <<<"$own" && continue
-    # $d may be a virtual name (sh, libfoo.so): check the package that provides it
-    prov=$(pacman -Sp --print-format %n "$d" 2>/dev/null | tail -1) || die "AUR dependency $d is not in the repos"
-    grep -qx "$prov" <<<"$ARCH_PKGS" || die "AUR dependency $d ($prov) is not in Arch's core/extra/multilib"
+    grep -qxF "${d%%[<>=]*}" <<<"$own" && continue
+    # repo/<dep> resolves provides (sh, libfoo.so=1-64) and versions (foo>=1.2) inside that repo only; -dd: just the target
+    pacman -Sddp "core/$d" >/dev/null 2>&1 || pacman -Sddp "extra/$d" >/dev/null 2>&1 ||
+        die "AUR dependency $d is not provided by Arch's core/extra"
 done < "$P/.deps"
 rm "$P/.deps"
 DL=$(xargs pacman -Sp --print-format '%s' < "$P/repo-packages.txt" 2>/dev/null | awk '{s+=$1} END{print s+0}')

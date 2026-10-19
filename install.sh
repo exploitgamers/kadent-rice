@@ -237,23 +237,28 @@ choose_quickshell() {
 hyprland_commit() { { XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-$WORK} Hyprland --version 2>/dev/null || true; } | sed -n 's/.* at commit \([0-9a-f]\{40\}\).*/\1/p' | head -1 || true; }
 
 choose_hyprbars() {
-    local now t0
+    local now t0 plug="$WORK/home/.local/lib/hyprland/plugins"
     now=$(hyprland_commit)
     # no commit readable (Hyprland --version needs XDG_RUNTIME_DIR): same package version counts as a match
     [ -n "$now" ] || [ "$(pacman -Q hyprland 2>/dev/null | awk '{print $2}')" != "$HYPR_VERSION" ] || now=$HYPR_COMMIT
     if [ "$now" = "$HYPR_COMMIT" ]; then say "Title bars: bundled plugin matches Hyprland ${now:0:8}"; return; fi
-    warn "Hyprland here is ${now:0:8} (bundled plugin: ${HYPR_COMMIT:0:8}): rebuilding the title-bar plugin."
-    sudo_run pacman -S --needed --noconfirm cmake ninja pkgconf gcc
+    warn "Hyprland here is $([ -n "$now" ] && echo "${now:0:8}" || echo unknown) (bundled plugin: ${HYPR_COMMIT:0:8}): rebuilding the title-bar plugin."
+    if ! sudo_run pacman -S --needed --noconfirm cmake ninja pkgconf gcc; then
+        warn "Could not install the build tools (cmake ninja pkgconf gcc): windows will have no macOS title bars (everything else works)."
+        rm -f "$plug"/{libhyprbars.so,BUILT_FOR_HYPRLAND}
+        return
+    fi
     if [ $DRY = 1 ]; then echo "[dry-run] would build hyprbars in $WORK/hyprbars-src/hyprbars"; return; fi
     t0=$(date +%s)
     if (cd "$WORK/hyprbars-src/hyprbars" && cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null &&
         cmake --build build -j"$(nproc)" >/dev/null); then
-        cp "$WORK/hyprbars-src/hyprbars/build/libhyprbars.so" "$WORK/home/.local/lib/hyprland/plugins/libhyprbars.so"
-        echo "$now" > "$WORK/home/.local/lib/hyprland/plugins/BUILT_FOR_HYPRLAND"
+        cp "$WORK/hyprbars-src/hyprbars/build/libhyprbars.so" "$plug/libhyprbars.so"
+        # commit unknown: no stamp (rice-doctor then asks for a rebuild) instead of an empty or stale one
+        if [ -n "$now" ]; then echo "$now" > "$plug/BUILT_FOR_HYPRLAND"; else rm -f "$plug/BUILT_FOR_HYPRLAND"; fi
         say "Title-bar plugin rebuilt in $(( $(date +%s) - t0 )) s"
     else
         warn "Title-bar plugin build failed: windows will have no macOS title bars (everything else works)."
-        rm -f "$WORK"/home/.local/lib/hyprland/plugins/{libhyprbars.so,BUILT_FOR_HYPRLAND}
+        rm -f "$plug"/{libhyprbars.so,BUILT_FOR_HYPRLAND}
     fi
 }
 

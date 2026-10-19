@@ -1,5 +1,5 @@
 # Repo packages the desktop uses (one `pacman -Syu --needed` at install time).
-# build.sh checks every name is in Arch's core/extra/multilib (not CachyOS-only). Dependencies of the bundled AUR
+# build.sh checks every name is in Arch's core/extra (not CachyOS-only, not multilib). Dependencies of the bundled AUR
 # packages (caelestia-shell, caelestia-cli, hyprmod, qtengine…) are pulled in by
 # `pacman -U` automatically and are not listed here.
 
