@@ -6,14 +6,23 @@ frosted glass. Built on Hyprland (Lua config), the Caelestia shell and Quickshel
 
 ## Install
 
-On a fresh CachyOS with KDE Plasma, open a terminal and run:
+**Before you start**
+
+- CachyOS (or Arch Linux) with **KDE Plasma** on an x86-64 PC. On another Linux, the command below offers
+  to download CachyOS and write it to a USB stick; install it with KDE Plasma, then run the command again.
+- Update and reboot first: `sudo pacman -Syu`, then restart.
+- Use a terminal inside your Plasma desktop (not SSH), as your normal user, with your password at hand.
+- An internet connection.
+- Open Firefox once and close it, so the theme finds your profile.
+
+**Then run**
 
 ```sh
 curl -LO https://github.com/exploitgamers/macOSxCaelestia/releases/latest/download/macOSxCaelestia.run && bash macOSxCaelestia.run
 ```
 
-It shows the plan, asks once and takes 5-10 minutes. Then **log out and pick Hyprland** on the
-login screen. Plasma stays as it was; switch back to it at the login screen any time.
+Answer yes, wait 5-10 minutes, then **log out and pick Hyprland** on the login screen.
+Plasma stays as it was; you can switch back at the login screen any time.
 
 ## Screenshots
 
@@ -33,12 +42,6 @@ login screen. Plasma stays as it was; switch back to it at the login screen any 
 | `--uninstall` | remove the installed config files and put your old ones back (packages stay) |
 
 Example: `bash macOSxCaelestia.run --dry-run`.
-
-## Requirements
-
-CachyOS (recommended) or Arch Linux, x86-64, a user with sudo, an internet connection. On any other
-system the file offers to download the latest CachyOS ISO, check its sha256 and write it to a USB stick
-you choose; install CachyOS with **KDE Plasma**, then run the file again.
 
 ## What it changes
 

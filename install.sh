@@ -137,7 +137,7 @@ uninstall() {
     done
     # renamed once restored, so a later install + uninstall can't put these old copies back over newer edits
     for ((i = 0; i < ${#bks[@]}; i++)); do
-        [ -d "${bks[i]}" ] && run mv "${bks[i]}" "$HOME/.local/state/macOSxCaelestia-restored-${bks[i]##*/macOSxCaelestia-backup-}"
+        [ -d "${bks[i]}" ] && run mv "${bks[i]}" "$HOME/.local/state/macOSxCaelestia-restored-${bks[i]##*-backup-}"
     done
     if [ -f "$STATE/gsettings.before" ]; then
         if [ $DRY = 0 ] && test_bus; then
