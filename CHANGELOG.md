@@ -11,6 +11,8 @@ it was published (`vYYYY.MM.DD`) and can be downloaded from the GitHub releases 
   with the installer like the other AUR apps, and the build refuses any package missing from Arch's repos.
 - If installing packages fails, the installer now stops with a clear message that your settings were
   not installed yet, so you can fix the problem pacman shows and simply run it again.
+- If the title-bar plugin has to be rebuilt for your Hyprland and its build tools can't be installed,
+  the installer now carries on without title bars instead of stopping before your settings are copied.
 - Already installed on plain Arch and got Hyprland's default look? Download the new file with the same
   one-command install and run it again; it picks up where the old one stopped.
 - The README has a new Troubleshooting section, notes that no AUR helper (yay, paru) is needed, and
