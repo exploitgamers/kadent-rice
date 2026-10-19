@@ -145,7 +145,8 @@ done < <(grep -rlI --exclude-dir=quickshell-local -e "$SRC_USER" "$H" || true)
 AUR=(caelestia-shell caelestia-cli qt6-m3shapes-git libcava python-materialyoucolor ttf-rubik-vf
      qtengine darkly-bin whitesur-icon-theme whitesur-cursor-theme-git caelestia-firefox-theme
      hyprmod python-hyprland-config python-hyprland-monitors python-hyprland-schema
-     python-hyprland-socket python-hyprland-state appimagelauncher)
+     python-hyprland-socket python-hyprland-state appimagelauncher
+     pwvucontrol)   # pwvucontrol: CachyOS repo + AUR only, not in Arch's repos
 say "Repacking ${#AUR[@]} AUR packages"
 repack() {
     local name=$1 ver db tmp
@@ -196,8 +197,11 @@ done
 # ---------------------------------------------------------------- repo packages (checked now)
 say "Checking repo package names"
 grep -v '^\s*#' "$HERE/repo-packages.txt" | tr -s ' \t' '\n' | grep . > "$P/repo-packages.txt"
-missing=$(xargs pacman -Si < "$P/repo-packages.txt" 2>&1 >/dev/null | sed -n "s/^error: package '\(.*\)' was not found/\1/p")
-[ -z "$missing" ] || die "not in the repos: $missing"
+# only Arch's own repos count: CachyOS-only packages ([cachyos*]) don't exist on plain Arch
+ARCH_PKGS=$(pacman -Slq core extra multilib | sort -u)
+[ -n "$ARCH_PKGS" ] || die "pacman -Slq core extra multilib listed nothing (are those repos in pacman.conf?)"
+missing=$(sort -u "$P/repo-packages.txt" | comm -23 - <(echo "$ARCH_PKGS") | tr '\n' ' ')
+[ -z "$missing" ] || die "not in Arch's core/extra/multilib (CachyOS-only or AUR - move to AUR=(...)): $missing"
 # AUR deps that must come from the repos
 for f in "$P"/pkgs/*.pkg.tar.zst; do
     bsdtar -xOf "$f" .PKGINFO | sed -n 's/^depend = //p'
@@ -205,7 +209,9 @@ done | sed 's/[<>=].*//' | sort -u > "$P/.deps"
 own=$(for a in "${AUR[@]}"; do echo "$a"; done)
 while read -r d; do
     grep -qx "$d" <<<"$own" && continue
-    pacman -Sp --print-format %n "$d" >/dev/null 2>&1 || die "AUR dependency $d is not in the repos"
+    # $d may be a virtual name (sh, libfoo.so): check the package that provides it
+    prov=$(pacman -Sp --print-format %n "$d" 2>/dev/null | tail -1) || die "AUR dependency $d is not in the repos"
+    grep -qx "$prov" <<<"$ARCH_PKGS" || die "AUR dependency $d ($prov) is not in Arch's core/extra/multilib"
 done < "$P/.deps"
 rm "$P/.deps"
 DL=$(xargs pacman -Sp --print-format '%s' < "$P/repo-packages.txt" 2>/dev/null | awk '{s+=$1} END{print s+0}')

@@ -26,7 +26,6 @@ gvfs
 udisks2
 fuzzel
 btop
-pwvucontrol
 kdialog
 cliphist
 wl-clipboard

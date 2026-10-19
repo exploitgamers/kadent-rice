@@ -5,6 +5,13 @@ it was published (`vYYYY.MM.DD`) and can be downloaded from the GitHub releases 
 
 ## Unreleased
 
+- Fixed: on plain Arch (not CachyOS) the installer stopped silently while installing packages, so none
+  of the desktop's settings were copied and Hyprland started with its default look. The cause was the
+  PipeWire volume control (pwvucontrol), which only CachyOS's own repository carries; it is now bundled
+  with the installer like the other AUR apps, and the build refuses any package missing from Arch's repos.
+- If installing packages fails, the installer now stops with a clear message that your settings were
+  not installed yet, so you can fix the problem pacman shows and simply run it again.
+
 ## v2026.10.19
 
 - First public release: one file that installs the whole macOS-style desktop (Hyprland, the Caelestia

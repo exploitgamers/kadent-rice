@@ -1,5 +1,5 @@
 # Repo packages the desktop uses (one `pacman -Syu --needed` at install time).
-# build.sh checks every name with `pacman -Si`. Dependencies of the bundled AUR
+# build.sh checks every name is in Arch's core/extra/multilib (not CachyOS-only). Dependencies of the bundled AUR
 # packages (caelestia-shell, caelestia-cli, hyprmod, qtengine…) are pulled in by
 # `pacman -U` automatically and are not listed here.
 
@@ -13,8 +13,8 @@ quickshell qt6-base qt6-declarative qt6-svg qt6-wayland qt6-imageformats qt6-5co
 # alone on a bare system it is 139 packages / ~151 MiB of KDE Frameworks, ~4 MiB on top of this list)
 systemsettings uwsm nwg-look
 
-# apps the dock, launcher and keybinds open
-foot fish starship firefox thunar thunar-volman tumbler gvfs udisks2 fuzzel btop pwvucontrol kdialog
+# apps the dock, launcher and keybinds open (pwvucontrol is bundled: not in Arch's repos)
+foot fish starship firefox thunar thunar-volman tumbler gvfs udisks2 fuzzel btop kdialog
 
 # helpers called by the shells and rice-* scripts
 cliphist wl-clipboard grim slurp swappy ydotool jq socat inotify-tools libnotify playerctl

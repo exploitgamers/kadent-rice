@@ -204,9 +204,11 @@ EOF
 install_packages() {
     say "Repo packages"
     # shellcheck disable=SC2046
-    sudo_run pacman -Syu --needed --noconfirm $(cat "$WORK/repo-packages.txt")
+    sudo_run pacman -Syu --needed --noconfirm $(cat "$WORK/repo-packages.txt") ||
+        die "installing the repo packages failed (see pacman's error above). Your configs were NOT installed - fix that and run this again."
     say "Bundled AUR packages"
-    sudo_run pacman -U --needed --noconfirm "$WORK"/pkgs/*.pkg.tar.zst
+    sudo_run pacman -U --needed --noconfirm "$WORK"/pkgs/*.pkg.tar.zst ||
+        die "installing the bundled packages failed (see pacman's error above). Your configs were NOT installed - fix that and run this again."
 }
 
 check_versions() {
