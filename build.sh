@@ -231,7 +231,7 @@ echo "  $(wc -l < "$DIST/privacy-grep.txt") generic hits (code identifiers), lis
 
 # ---------------------------------------------------------------- pack
 say "Packing"
-tar -C "$P" --zstd -cf "$DIST/payload.tar.zst" --exclude='.repack.*' .
+tar -C "$P" --zstd -cf "$DIST/payload.tar.zst" --exclude='.repack.*' --owner=0 --group=0 --numeric-owner .   # no user name in tar headers
 {
     sed "s/@@BUILD_VERSION@@/$(date +%Y%m%d)/" "$HERE/install.sh"
     echo "__MACOSXCAELESTIA_PAYLOAD__"
