@@ -6,6 +6,8 @@ frosted glass. Built on Hyprland (Lua config), the Caelestia shell and Quickshel
 
 ## Install (5-10 minutes)
 
+Download `macOSxCaelestia.run` from the [latest release](https://github.com/exploitgamers/macOSxCaelestia/releases/latest), then:
+
 ```sh
 chmod +x macOSxCaelestia.run
 ./macOSxCaelestia.run            # shows the plan, asks once
