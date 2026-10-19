@@ -27,7 +27,7 @@ PanelWindow {
     // and window buttons along the top) — any click raised the strips there, so the
     // click went to the shield and Firefox hid its toolbar again
     // the shown desktop's windows, like BottomDock: activeToplevel stayed "fullscreen" after Alt+Tab hid a game
-    readonly property bool fullscreenActive: Hyprland.monitorFor(modelData)?.activeWorkspace?.toplevels.values.some(t => (t.lastIpcObject?.fullscreen ?? 0) > 1) ?? false
+    readonly property bool fullscreenActive: Shared.fullscreenOn(modelData)
     readonly property bool active: !fullscreenActive && ((Shared.windowDrag && !Shared.titleDrag) || lingering)
     readonly property bool pointerOnStrip: leftHover.hovered || topHover.hovered || rightHover.hovered || bottomHover.hovered
 

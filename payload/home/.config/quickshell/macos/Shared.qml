@@ -6,6 +6,16 @@ import Quickshell.Hyprland
 import Quickshell.Io
 
 Singleton {
+    // A true fullscreen window (Hyprland mode 2, F11 or app-requested) on the desktop shown on `screen`.
+    // Uses the live Wayland toplevel flag + workspace id + monitor by name: the old monitorFor()/
+    // lastIpcObject.fullscreen path went stale after a monitor hotplug and kept the dock over fullscreen
+    // windows. Maximised (mode 1) windows are not fullscreen here; Alt+Tab-minimised ones are on
+    // special:minimized, not the shown desktop.
+    function fullscreenOn(screen: var): bool {
+        const id = Hyprland.monitors.values.find(m => m.name === screen?.name)?.activeWorkspace?.id;
+        return id !== undefined && Hyprland.toplevels.values.some(h => h.workspace?.id === id && (h.wayland?.fullscreen ?? false));
+    }
+
     // Now Playing click: bring the player's app forward — its window if it has
     // one (restored if minimised; MPRIS raise() often doesn't work, e.g. Spotify),
     // else MPRIS raise, else launch it. With nothing playing it opens Spotify.
@@ -79,8 +89,7 @@ Singleton {
             } else if (event.name === "custom" && event.data.startsWith("maczoom>>")) {
                 Shared.zoomedWindows = event.data.slice(9).split(",").filter(a => a).map(a => a.replace(/^0x/, ""));
             } else if (event.name === "fullscreen") {
-                // Quickshell only refreshes workspaces on this event; the dock's fullscreenActive
-                // reads each toplevel's lastIpcObject.fullscreen, which needs a toplevel refresh
+                // keeps lastIpcObject.fullscreen fresh (Quickshell only refreshes workspaces on this event)
                 Hyprland.refreshToplevels();
             }
         }

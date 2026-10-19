@@ -29,7 +29,7 @@ PanelWindow {
     // the windows on the desktop shown on this screen, not the "active" toplevel or the workspace's
     // hasfullscreen flag: both stayed set after Alt+Tab hid a fullscreen game (minimised, still
     // fullscreen), which kept the dock hidden and its space unreserved
-    readonly property bool fullscreenActive: Hyprland.monitorFor(modelData)?.activeWorkspace?.toplevels.values.some(t => (t.lastIpcObject?.fullscreen ?? 0) > 1) ?? false
+    readonly property bool fullscreenActive: Shared.fullscreenOn(modelData)
     readonly property bool hovered: input.containsMouse || dragging
     // Fullscreen apps: the dock hides and reveals from the bottom edge (like
     // macOS), drawn above the app on the Overlay layer.
