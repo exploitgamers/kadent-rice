@@ -78,17 +78,20 @@ local function zoom_rect(win)
     local r     = type(mon.reserved) == "table" and mon.reserved or {}
     local scale = mon.scale or 1
     local gap   = require("variables").windowGapsOut or 0
+    -- a floating window's 1 px border is drawn outside its box: without it the visible gap was 7
+    -- (tiled windows already get it: Hyprland's layout reserves the border)
+    local bs    = require("variables").windowBorderSize or 0
     local bar   = hl.plugin.hyprbars and mac_bar_height or 0 -- title bar sits above the content box
     local left, top = r.left or 0, r.top or 0
     -- a bare screen edge (no bar/dock/panel reserving it, e.g. the auto-hiding dock): 8 px,
     -- the line the bar pills and the dock sit on; next to a reserved zone the normal gap
     -- (those zones already include their share of the 8 px: bar = pills + 4, dock = plate + 12)
-    local function m(res) return (res or 0) > 0 and gap or 8 end
+    local function m(res) return ((res or 0) > 0 and gap or 8) + bs end
     return {
         x = mon.x + left + m(r.left),
-        y = mon.y + top + gap + bar,
+        y = mon.y + top + gap + bs + bar,
         w = math.floor(mon.width / scale - left - (r.right or 0) - m(r.left) - m(r.right)),
-        h = math.floor(mon.height / scale - top - (r.bottom or 0) - gap - m(r.bottom) - bar),
+        h = math.floor(mon.height / scale - top - (r.bottom or 0) - gap - bs - m(r.bottom) - bar),
     }
 end
 
@@ -109,6 +112,35 @@ function mac_recentre_spot(win)
 end
 
 local function near(a, b) return math.abs(a - b) <= 3 end
+
+-- Special-desktop apps (Discord, Spotify… tiled above) stay tiled only on their special desktop.
+-- Restored from Minimise onto a normal desktop they stayed tiled: under every floating window,
+-- so Alt+Tab/dock focus couldn't bring them forward, and with tiling gaps instead of ours.
+local SPECIAL_APP_TAGS = { music_player = true, communication_app = true, todo_app = true, system_monitor = true }
+hl.on("window.move_to_workspace", function(win)
+    if not (mac_floating_mode and win and not win.floating
+            and win.workspace and win.workspace.id > 0) then return end
+    for _, t in ipairs(win.tags or {}) do
+        if SPECIAL_APP_TAGS[(t:gsub("%*$", ""))] then
+            local addr = win.address
+            -- after the move finishes: Hyprland re-places it on the new desktop after this event
+            mac_special_float_timers = mac_special_float_timers or {} -- global: local timers get collected
+            mac_special_float_timers[addr] = hl.timer(function()
+                mac_special_float_timers[addr] = nil
+                local w0 = hl.get_window("address:" .. addr)
+                -- fullscreen checked here, not in the event: Hyprland clears it during the move and
+                -- sets it back right after, so the event always saw 0 and this floated a fullscreen game
+                if not w0 or w0.floating or (w0.fullscreen or 0) ~= 0 then return end
+                local z = zoom_rect(w0)
+                local w, h = math.floor(z.w * 0.62), math.floor(z.h * 0.7)
+                hl.dispatch(hl.dsp.window.float({ action = "on", window = w0 }))
+                hl.dispatch(hl.dsp.window.resize({ x = w, y = h, relative = false, window = w0 }))
+                hl.dispatch(hl.dsp.window.move({ x = z.x + math.floor((z.w - w) / 2), y = z.y + math.floor((z.h - h) / 2), window = w0 }))
+            end, { timeout = 30, type = "oneshot" })
+            return
+        end
+    end
+end)
 
 -- zoom animation: ~220 ms ease-out whose curve never passes 1 (no overshoot past the
 -- target rect). WINDOWS_MOVE must match windowsMove in ~/.config/hypr/hyprland/animations.lua.
@@ -494,8 +526,9 @@ function mac_switch(dir)
         for _, w in ipairs(hl.get_windows()) do
             local name = w.workspace and w.workspace.name or ""
             -- special:showdesktop: this desktop's windows while Show Desktop hides them
-            -- (Alt+Tab did nothing at all after the bottom-right hot corner)
-            if w.mapped ~= false and ((ws and w.workspace and w.workspace.id == ws.id) or name == "special:minimized" or name == "special:showdesktop") then
+            -- (Alt+Tab did nothing at all after the bottom-right hot corner); special app desktops
+            -- (Discord on special:communication, Spotify on special:music…): focusing opens them
+            if w.mapped ~= false and ((ws and w.workspace and w.workspace.id == ws.id) or name:match("^special:")) then
                 table.insert(wins, w)
             end
         end

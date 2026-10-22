@@ -52,6 +52,7 @@ mac_size_rule = hl.window_rule({
 })
 
 function mac_set_floating(on)
+    mac_floating_mode = on and true or false -- read by hypr-qol.lua's special-desktop app float
     mac_float_rule:set_enabled(on and true or false)
     mac_center_rule:set_enabled(on and true or false)
     mac_center_x11_rule:set_enabled(on and true or false)

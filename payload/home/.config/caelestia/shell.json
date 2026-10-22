@@ -100,7 +100,16 @@
     "hideDelay": 1500
   },
   "general": {
-    "showOverFullscreen": true
+    "showOverFullscreen": true,
+    "idle": {
+      "timeouts": [
+        {
+          "timeout": 300,
+          "idleAction": "dpms off",
+          "returnAction": "dpms on"
+        }
+      ]
+    }
   },
   "utilities": {
     "cards": {
