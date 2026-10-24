@@ -53,10 +53,10 @@ PanelWindow {
     // through its transforms once, when the item is set — the card was still tucked up
     // under the bar (drop spring), so the input region stayed there and no click landed
     mask: Region {
-        x: card.x
-        y: card.y
-        width: win.shown ? card.width : 0
-        height: win.shown ? card.height : 0
+        x: card.x + (1 - scaleSpring.value) * card.width / 2
+        y: card.y + dropSpring.value
+        width: win.shown ? card.width * scaleSpring.value : 0
+        height: win.shown ? card.height * scaleSpring.value : 0
     }
 
     GlassMenu {

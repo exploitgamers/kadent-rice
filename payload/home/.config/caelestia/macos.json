@@ -63,7 +63,7 @@
       },
       {
         "id": "weather-1",
-        "order": -3515,
+        "order": -4385,
         "pos": {
           "HDMI-A-1": {
             "x": 1546,
@@ -97,7 +97,7 @@
       },
       {
         "id": "music-1",
-        "order": -3514,
+        "order": -4384,
         "pos": {
           "HDMI-A-1": {
             "x": 1546,
@@ -125,7 +125,7 @@
       },
       {
         "id": "battery-1",
-        "order": -1,
+        "order": -3,
         "pos": {
           "HDMI-A-1": {
             "x": 1545,
@@ -207,7 +207,7 @@
       },
       {
         "id": "timer-mvdcc67l",
-        "order": -1,
+        "order": 1,
         "pos": {
           "eDP-1": {
             "x": 1358,
